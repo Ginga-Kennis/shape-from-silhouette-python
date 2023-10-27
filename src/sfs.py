@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import open3d as o3d
 
 class VoxelSpace:

@@ -19,7 +19,7 @@ def main():
     voxel_space = VoxelSpace(params["x_range"], params["y_range"], params["z_range"], params["voxel_size"], np.array(params["K"]))
 
     for i in range(params["num_images"]):
-        image = cv2.imread(f"images/view{i+1}.png",0)
+        image = cv2.imread(f"images/image{i+1}.png",0)
         extrinsic = np.array(params[f"extrinsic{i+1}"])
         voxel_space.sfs(image,extrinsic)
 
