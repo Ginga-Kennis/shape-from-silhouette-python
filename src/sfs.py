@@ -68,7 +68,6 @@ class VoxelSpace:
         height, width = np.shape(image)
         image[np.where(image != 0)] = 1
         silhouette = image > 0
-        print(silhouette)
         return height, width, image, silhouette
     
     def visualize_pcd(self,num_image):
@@ -83,5 +82,13 @@ class VoxelSpace:
         pcd.points = o3d.utility.Vector3dVector(self.pcd)
 
         o3d.io.write_point_cloud("pointcloud.ply", pcd)
-        o3d.visualization.draw_geometries([pcd])
+        # o3d.visualization.draw_geometries([pcd])
+
+        viewer = o3d.visualization.Visualizer()
+        viewer.create_window()
+        viewer.add_geometry(pcd)
+        opt = viewer.get_render_option()
+        opt.show_coordinate_frame = True
+        viewer.run()
+        viewer.destroy_window()
 
