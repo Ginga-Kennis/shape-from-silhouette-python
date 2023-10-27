@@ -3,9 +3,9 @@ from scipy.spatial.transform import Rotation as R
 import open3d as o3d
 
 class VoxelSpace:
-    def __init__(self, xlim, ylim, zlim, voxel_size,K):
+    def __init__(self, x_range, y_range, z_range, voxel_size,K):
         # number of voxel in each axis
-        self.voxel_number = [np.abs(xlim[1] - xlim[0]) / voxel_size[0], np.abs(ylim[1] - ylim[0]) / voxel_size[1], np.abs(zlim[1] - zlim[0]) / voxel_size[2]]
+        self.voxel_number = [np.abs(x_range[1] - x_range[0]) / voxel_size[0], np.abs(y_range[1] - y_range[0]) / voxel_size[1], np.abs(z_range[1] - z_range[0]) / voxel_size[2]]
         
         # total number of voxels
         self.total_number = np.prod(self.voxel_number).astype(int)
