@@ -4,7 +4,7 @@ y_range : [0.0,0.3]
 z_range : [0.0,0.3]
 
 # voxel size of each axis in meters.
-voxel_size : [0.0075,0.0075,0.0075]
+voxel_size : [0.003,0.003,0.003]
 
 # Camera intrinsic parameters. 3×3 matrix
 K : [[891.318115234375, 0.0, 628.9073486328125],
