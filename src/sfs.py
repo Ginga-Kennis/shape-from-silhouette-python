@@ -10,10 +10,10 @@ class VoxelSpace:
         self.total_number = np.prod(self.voxel_number).astype(int)
         
         # (total_number, 4)
-        # The first three values are the x-y-z-coordinates of the voxel, the fourth value is the occupancy
+        # The first three values are the x-y-z-coordinates of the voxel, the fourth value is the occupancy(0 or 1)
         self.voxel = np.ones((self.total_number, 4))
 
-        # number of images projected to each points
+        # total number of images projected to each points
         self.num_projected = np.zeros((self.total_number, 1))
         
 
@@ -41,19 +41,25 @@ class VoxelSpace:
 
         height, width, image, silhouette = self.preprocess_image(image)
 
-        points3D_camera = np.matmul(extrinsic,self.points3D)
-
         #perspective projection matrix
-        p_matrix = self.calc_p_matrix(extrinsic)
+        p_matrix = self.calc_p_matrix(extrinsic[0:3,:])
 
         
         # projection to the image plane (points2D = (u,v,1) * 41^3)
         points2D = np.matmul(p_matrix, self.points3D)
         points2D = np.floor(points2D / points2D[2, :]).astype(np.int32) # 3行目を1に揃える
 
+        # check for points less than focal length
+        points3D_camera = np.matmul(extrinsic,self.points3D)
+        ind1 = np.where((points3D_camera[2,:] < self.f))
+
         # check for (u < 0, width < u) and (v < 0, height < v)
-        ind = np.where(((points2D[0, :] < 0) | (points2D[0, :] >= width) | (points2D[1, :] < 0) | (points2D[1, :] >= height))) 
-        points2D[:,ind] = 0
+        ind2 = np.where(((points2D[0, :] < 0) | (points2D[0, :] >= width) | (points2D[1, :] < 0) | (points2D[1, :] >= height))) 
+        points2D[:,ind2] = 0
+
+        # concat ind1 and ind2
+        ind = np.unique(np.concatenate((ind1[0],ind2[0])))
+
     
         # 0 : outside image
         # 1 : inside image
@@ -65,7 +71,7 @@ class VoxelSpace:
         # 1 : outside silhouette
         # 2 : outside image
         tmp = silhouette[points2D.T[:,1], points2D.T[:,0]].astype(int)
-        tmp[ind[0]] = 2
+        tmp[ind] = 2
 
         
         for i in range(self.total_number):
@@ -90,21 +96,16 @@ class VoxelSpace:
         return height, width, image, silhouette
     
     def visualize_pcd(self):
-        ind = self.voxel[:,3] == 1.0
-
-        # get pointcloud from voxel
-        self.pcd = self.voxel[ind,:]
-        # get xyz coordinates of pointcloud
-        self.pcd = self.pcd[:,0:3]
-
+        # extract pointcloud(occupancy == 1) from voxel
+        ind = np.where(self.voxel[:,3] == 1.0)
+        self.pcd = self.voxel[ind[0],0:3]
         print(np.shape(self.pcd))
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.pcd)
+        
 
-        o3d.io.write_point_cloud("pointcloud.ply", pcd)
-        # o3d.visualization.draw_geometries([pcd])
-
+        # visualize
         viewer = o3d.visualization.Visualizer()
         viewer.create_window()
         viewer.add_geometry(pcd)
@@ -112,4 +113,7 @@ class VoxelSpace:
         opt.show_coordinate_frame = True
         viewer.run()
         viewer.destroy_window()
+
+        # save pointcloud(.ply)
+        o3d.io.write_point_cloud("pointcloud.ply", pcd)
 
