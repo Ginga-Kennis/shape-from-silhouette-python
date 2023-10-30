@@ -2,7 +2,7 @@ import numpy as np
 import open3d as o3d
 
 class VoxelSpace:
-    def __init__(self, x_range, y_range, z_range, voxel_size,K):
+    def __init__(self, x_range, y_range, z_range, voxel_size,K,focal_length):
         # number of voxel in each axis
         self.voxel_number = [np.abs(x_range[1] - x_range[0]) / voxel_size[0], np.abs(y_range[1] - y_range[0]) / voxel_size[1], np.abs(z_range[1] - z_range[0]) / voxel_size[2]]
         
@@ -12,6 +12,9 @@ class VoxelSpace:
         # (total_number, 4)
         # The first three values are the x-y-z-coordinates of the voxel, the fourth value is the occupancy
         self.voxel = np.ones((self.total_number, 4))
+
+        # number of images projected to each points
+        self.num_projected = np.zeros((self.total_number, 1))
         
 
         l = 0
@@ -27,6 +30,7 @@ class VoxelSpace:
         
         # camera intrinsic
         self.K = K
+        self.f = focal_length
 
         # number of images used for SfS
         self.num_image = 0
@@ -37,6 +41,8 @@ class VoxelSpace:
 
         height, width, image, silhouette = self.preprocess_image(image)
 
+        points3D_camera = np.matmul(extrinsic,self.points3D)
+
         #perspective projection matrix
         p_matrix = self.calc_p_matrix(extrinsic)
 
@@ -45,18 +51,34 @@ class VoxelSpace:
         points2D = np.matmul(p_matrix, self.points3D)
         points2D = np.floor(points2D / points2D[2, :]).astype(np.int32) # 3行目を1に揃える
 
+        # check for (u < 0, width < u) and (v < 0, height < v)
+        ind = np.where(((points2D[0, :] < 0) | (points2D[0, :] >= width) | (points2D[1, :] < 0) | (points2D[1, :] >= height))) 
+        points2D[:,ind] = 0
+    
+        # 0 : outside image
+        # 1 : inside image
+        projected = np.ones((self.total_number, 1))
+        projected[ind,0] = 0.0
 
-        ind1 = np.where((points2D[0, :] < 0) | (points2D[0, :] >= width)) # check for u value bigger than width
-        ind2 = np.where((points2D[1, :] < 0) | (points2D[1, :] >= height))  # check for v value bigger than width
-        ind = ind1 + ind2
 
-        # accumulate the value of each voxel in the current image
-        tmp = silhouette[points2D.T[:,1], points2D.T[:,0]]
-        tmp[ind[1]] = False
-        self.voxel[:,3] += tmp
+        # 0 : inside silhouette
+        # 1 : outside silhouette
+        # 2 : outside image
+        tmp = silhouette[points2D.T[:,1], points2D.T[:,0]].astype(int)
+        tmp[ind[0]] = 2
 
-        self.visualize_pcd(self.num_image)
+        
+        for i in range(self.total_number):
+            if self.voxel[i,3] == 0.0:
+                if tmp[i] == 1 and self.num_projected[i] == 0:
+                    self.voxel[i,3] = 1.0
+            else:
+                if tmp[i] == 0:
+                    self.voxel[i,3] = 0.0
+            
+        self.num_projected += projected
 
+        self.visualize_pcd()
 
     def calc_p_matrix(self,extrinsic):
         return np.matmul(self.K,extrinsic)
@@ -67,13 +89,15 @@ class VoxelSpace:
         silhouette = image > 0
         return height, width, image, silhouette
     
-    def visualize_pcd(self,num_image):
-        ind = self.voxel[:,3] >= num_image
+    def visualize_pcd(self):
+        ind = self.voxel[:,3] == 1.0
 
         # get pointcloud from voxel
         self.pcd = self.voxel[ind,:]
         # get xyz coordinates of pointcloud
         self.pcd = self.pcd[:,0:3]
+
+        print(np.shape(self.pcd))
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.pcd)
