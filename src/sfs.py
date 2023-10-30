@@ -25,37 +25,31 @@ class VoxelSpace:
                     l += 1
 
         
-        self.points3D = np.copy(self.voxel).T
-        self.points3D[3,:] = 1
+        self.points3D_world = np.copy(self.voxel).T
+        self.points3D_world[3,:] = 1
         
         # camera intrinsic
         self.K = K
         self.f = focal_length
-
-        # number of images used for SfS
-        self.num_image = 0
         
 
     def sfs(self, image, extrinsic):
-        self.num_image += 1
-
         height, width, image, silhouette = self.preprocess_image(image)
 
         #perspective projection matrix
         p_matrix = self.calc_p_matrix(extrinsic[0:3,:])
 
-        
-        # projection to the image plane (points2D = (u,v,1) * 41^3)
-        points2D = np.matmul(p_matrix, self.points3D)
-        points2D = np.floor(points2D / points2D[2, :]).astype(np.int32) # 3行目を1に揃える
+        # projection to the image plane (points2D = (u,v,1) * self.total_number)
+        points2D = np.matmul(p_matrix, self.points3D_world)
+        points2D = np.floor(points2D / points2D[2, :]).astype(np.int32)
 
         # check for points less than focal length
-        points3D_camera = np.matmul(extrinsic,self.points3D)
+        points3D_camera = np.matmul(extrinsic,self.points3D_world)
         ind1 = np.where((points3D_camera[2,:] < self.f))
 
         # check for (u < 0, width < u) and (v < 0, height < v)
         ind2 = np.where(((points2D[0, :] < 0) | (points2D[0, :] >= width) | (points2D[1, :] < 0) | (points2D[1, :] >= height))) 
-        points2D[:,ind2] = 0
+        points2D[:,ind2] = 0  # just for error handling
 
         # concat ind1 and ind2
         ind = np.unique(np.concatenate((ind1[0],ind2[0])))
@@ -76,9 +70,11 @@ class VoxelSpace:
         
         for i in range(self.total_number):
             if self.voxel[i,3] == 0.0:
+                # 0 → 1 (only when self.num_projected == 0)
                 if tmp[i] == 1 and self.num_projected[i] == 0:
                     self.voxel[i,3] = 1.0
             else:
+                # 1 → 0
                 if tmp[i] == 0:
                     self.voxel[i,3] = 0.0
             
@@ -99,7 +95,6 @@ class VoxelSpace:
         # extract pointcloud(occupancy == 1) from voxel
         ind = np.where(self.voxel[:,3] == 1.0)
         self.pcd = self.voxel[ind[0],0:3]
-        print(np.shape(self.pcd))
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.pcd)

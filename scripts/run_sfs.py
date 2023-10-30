@@ -22,7 +22,6 @@ def main():
         image = cv2.imread(f"images/view{i+1}.png",0)
         extrinsic = np.array(params[f"extrinsic{i+1}"])
         voxel_space.sfs(image,extrinsic)
-        # print(i)
 
 
 if __name__ == "__main__":
