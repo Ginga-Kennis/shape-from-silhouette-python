@@ -77,10 +77,15 @@ class VoxelSpace:
                 # 1 → 0
                 if tmp[i] == 0:
                     self.voxel[i,3] = 0.0
+
+        self.remove_table()
             
         self.num_projected += projected
 
         self.visualize_pcd()
+
+    def remove_table(self):
+        self.voxel[np.where(self.voxel[:,2] < 0.05)[0],3] = 0
 
     def calc_p_matrix(self,extrinsic):
         return np.matmul(self.K,extrinsic)
