@@ -46,16 +46,14 @@ class VoxelSpace:
         points2D = np.floor(points2D / points2D[2, :]).astype(np.int32) # 3行目を1に揃える
 
 
-        points2D[np.where(points2D < 0)] = 0  # check for negative image coordinate
-
-        ind1 = np.where(points2D[0, :] >= width) # check for u value bigger than width
-        points2D[:,ind1] = 0
-        ind2 = np.where(points2D[1, :] >= height)  # check for v value bigger than width
-        points2D[:,ind2] = 0
-
+        ind1 = np.where((points2D[0, :] < 0) | (points2D[0, :] >= width)) # check for u value bigger than width
+        ind2 = np.where((points2D[1, :] < 0) | (points2D[1, :] >= height))  # check for v value bigger than width
+        ind = ind1 + ind2
 
         # accumulate the value of each voxel in the current image
-        self.voxel[:,3] += silhouette[points2D.T[:,1], points2D.T[:,0]]
+        tmp = silhouette[points2D.T[:,1], points2D.T[:,0]]
+        tmp[ind[1]] = False
+        self.voxel[:,3] += tmp
 
         self.visualize_pcd(self.num_image)
 
