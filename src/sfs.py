@@ -37,11 +37,13 @@ class VoxelSpace:
         height, width, image, silhouette = self.preprocess_image(image)
 
         #perspective projection matrix
+        extrinsic = np.linalg.inv(extrinsic) 
         p_matrix = self.calc_p_matrix(extrinsic[0:3,:])
 
         # projection to the image plane (points2D = (u,v,1) * self.total_number)
         points2D = np.matmul(p_matrix, self.points3D_world)
         points2D = np.floor(points2D / points2D[2, :]).astype(np.int32)
+        print(points2D)
 
         # check for points less than focal length
         points3D_camera = np.matmul(extrinsic,self.points3D_world)
