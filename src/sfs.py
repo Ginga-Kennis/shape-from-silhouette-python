@@ -1,6 +1,9 @@
 import numpy as np
 import open3d as o3d
 
+from src.utils import visualize_pcd
+
+
 class VoxelSpace:
     def __init__(self, x_range, y_range, z_range, voxel_size,K,focal_length):
         # number of voxel in each axis
@@ -15,13 +18,12 @@ class VoxelSpace:
 
         # total number of images projected to each points
         self.num_projected = np.zeros((self.total_number, 1))
-        
 
         l = 0
-        for x in range(int(self.voxel_number[0])):
-            for y in range(int(self.voxel_number[1])):
-                for z in range(int(self.voxel_number[2])):
-                    self.voxel[l] = [x * voxel_size[0], y * voxel_size[1], z * voxel_size[2], 0] 
+        for z in range(1,int(self.voxel_number[2])+1):
+            for y in range(1,int(self.voxel_number[1])+1):
+                for x in range(1,int(self.voxel_number[0])+1):
+                    self.voxel[l] = [voxel_size[0] * (x - 0.5),voxel_size[1] * (y - 0.5),voxel_size[2] * (z - 0.5), 0] 
                     l += 1
 
         
@@ -43,7 +45,6 @@ class VoxelSpace:
         # projection to the image plane (points2D = (u,v,1) * self.total_number)
         points2D = np.matmul(p_matrix, self.points3D_world)
         points2D = np.floor(points2D / points2D[2, :]).astype(np.int32)
-        print(points2D)
 
         # check for points less than focal length
         points3D_camera = np.matmul(extrinsic,self.points3D_world)
@@ -79,12 +80,10 @@ class VoxelSpace:
                 # 1 → 0
                 if tmp[i] == 0:
                     self.voxel[i,3] = 0.0
-
         self.remove_table()
-            
         self.num_projected += projected
 
-        self.visualize_pcd()
+            
 
     def remove_table(self):
         self.voxel[np.where(self.voxel[:,2] < 0.05)[0],3] = 0
@@ -97,25 +96,27 @@ class VoxelSpace:
         image[np.where(image != 0)] = 1
         silhouette = image > 0
         return height, width, image, silhouette
-    
-    def visualize_pcd(self):
-        # extract pointcloud(occupancy == 1) from voxel
+
+
+    @property
+    def pointcloud(self):
         ind = np.where(self.voxel[:,3] == 1.0)
-        self.pcd = self.voxel[ind[0],0:3]
+        pcd = self.voxel[ind[0],0:3]
+        num_points = np.shape(pcd)[0]
+        return pcd, num_points
+    
+    @property
+    def voxel_space(self):
+        voxel_space = self.voxel[:,3]
+        return voxel_space.reshape(int(self.voxel_number[0]),int(self.voxel_number[1]),int(self.voxel_number[2]))
 
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(self.pcd)
+
+
+
         
+    
 
-        # visualize
-        viewer = o3d.visualization.Visualizer()
-        viewer.create_window()
-        viewer.add_geometry(pcd)
-        opt = viewer.get_render_option()
-        opt.show_coordinate_frame = True
-        viewer.run()
-        viewer.destroy_window()
 
-        # save pointcloud(.ply)
-        o3d.io.write_point_cloud("pointcloud.ply", pcd)
+    
+
 
