@@ -14,6 +14,8 @@ K : [[540, 0.0, 320],
 
 focal_length : 0.00188
 
+table_height : 0.05
+
 # number of input images
 num_images : 6
 
